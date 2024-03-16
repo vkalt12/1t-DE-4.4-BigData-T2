@@ -1,0 +1,36 @@
+ЗАПРОС:
+
+CREATE TABLE IF NOT EXISTS stat_mart AS
+WITH custumers_union AS (      
+	SELECT * FROM customers WHERE subscription_year = 2020
+	UNION
+	SELECT * FROM customers WHERE subscription_year = 2021
+	UNION
+	SELECT * FROM customers WHERE subscription_year = 2022
+),
+customers_age_range AS (
+	SELECT cust.company, cust.subscription_year, COUNT(*) AS amount,
+		CASE
+			WHEN YEAR(CURRENT_DATE) - YEAR(pep.date_of_birth) <= 18 THEN '0 - 18'
+			WHEN YEAR(CURRENT_DATE) - YEAR(pep.date_of_birth) <= 25 THEN '19 - 25'
+			WHEN YEAR(CURRENT_DATE) - YEAR(pep.date_of_birth) <= 35 THEN '26 - 35'
+			WHEN YEAR(CURRENT_DATE) - YEAR(pep.date_of_birth) <= 45 THEN '36 - 45'
+			WHEN YEAR(CURRENT_DATE) - YEAR(pep.date_of_birth) <= 55 THEN '46 - 55'
+			WHEN YEAR(CURRENT_DATE) - YEAR(pep.date_of_birth) <= 65 THEN '56 - 65'
+			ELSE 'more than 65'
+		END AS age_group
+		FROM custumers_union cust
+	JOIN people pep ON cust.first_name = pep.first_name AND cust.last_name = pep.last_name AND cust.email = pep.email
+	JOIN organizations org ON cust.company = org.name
+	GROUP BY cust.company, cust.subscription_year, pep.date_of_birth
+)
+SELECT company, subscription_year, age_group, MAX(amount) AS num_cust   -- Итоговая витрина
+FROM customers_age_range
+GROUP BY company, subscription_year, age_group;
+
+ПЛАН ЗАПРОСА:
+
+1. Соединенить партиционированную таблицу custumers.
+2. Создать сводную таблицу, в которой указаны возрастные группы покупателей.
+3. Создать таблицу, представлящую собой требуемую витрину с указанием атрибутов:
+ 	компания, год подписки, возрастная группа, количество покупателей в указанной возрастной группе.
